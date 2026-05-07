@@ -10,6 +10,7 @@
  */
 
 import { Geolocation, type WatchPositionCallback } from '@capacitor/geolocation';
+import { Capacitor } from '@capacitor/core';
 import { haversineMeters, secondsSince } from '../utils/math';
 import { broadcastLocation } from './locationBroadcast';
 import type { RawPosition, GroupSettings, PrivacyMode } from '../types';
@@ -17,6 +18,8 @@ import {
   STATIONARY_THRESHOLD_SECONDS,
   STATIONARY_POLL_MULTIPLIER,
 } from '../utils/contextDefaults';
+
+const IS_WEB = !Capacitor.isNativePlatform();
 
 type OnPositionUpdate = (pos: RawPosition) => void;
 type OnSyncFired     = (pos: RawPosition) => void;
@@ -35,6 +38,7 @@ interface SyncState {
   lastSyncTime:      number;
   lastMovedTime:     number;  // for stationary detection
   watchId:           string | null;
+  webWatchId:        number | null;  // browser navigator.geolocation watch id
   isPaused:          boolean;
   pauseTimer:        ReturnType<typeof setTimeout> | null;
 }
@@ -46,12 +50,13 @@ let _syncState: SyncState = {
   lastSyncTime:      0,
   lastMovedTime:     Date.now(),
   watchId:           null,
+  webWatchId:        null,
   isPaused:          false,
   pauseTimer:        null,
 };
 
 export async function startTracking(config: GeoSyncConfig): Promise<void> {
-  if (_syncState.watchId) {
+  if (_syncState.watchId || _syncState.webWatchId !== null) {
     await stopTracking();
   }
 
@@ -61,14 +66,55 @@ export async function startTracking(config: GeoSyncConfig): Promise<void> {
     lastSyncTime:      0,
     lastMovedTime:     Date.now(),
     watchId:           null,
+    webWatchId:        null,
     isPaused:          false,
     pauseTimer:        null,
   };
 
+  console.log('[GeoSync] Platform:', IS_WEB ? 'web' : 'native');
+
+  if (IS_WEB) {
+    // Use browser's native geolocation API on web
+    if (!('geolocation' in navigator)) {
+      const err = new Error('Geolocation is not supported in this browser');
+      console.error('[GeoSync]', err.message);
+      throw err;
+    }
+
+    console.log('[GeoSync] Starting browser watchPosition (will prompt for permission)...');
+
+    const webWatchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const raw: RawPosition = {
+          lat:       position.coords.latitude,
+          lng:       position.coords.longitude,
+          accuracy:  position.coords.accuracy,
+          speed:     position.coords.speed,
+          heading:   position.coords.heading,
+          timestamp: position.timestamp,
+        };
+        handlePositionUpdate(raw);
+      },
+      (err) => {
+        console.error('[GeoSync] Browser geolocation error:', err.code, err.message);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout:            10_000,
+        maximumAge:         5_000,
+      }
+    );
+
+    _syncState.webWatchId = webWatchId;
+    console.log('[GeoSync] Browser watch started, id:', webWatchId);
+    return;
+  }
+
+  // Native platform — use Capacitor
   try {
-    console.log('[GeoSync] Requesting location permissions...');
+    console.log('[GeoSync] Requesting native location permissions...');
     await Geolocation.requestPermissions();
-    console.log('[GeoSync] Location permissions granted');
+    console.log('[GeoSync] Native location permissions granted');
   } catch (err) {
     console.error('[GeoSync] Failed to request permissions:', err);
     throw err;
@@ -97,13 +143,13 @@ export async function startTracking(config: GeoSyncConfig): Promise<void> {
   };
 
   try {
-    console.log('[GeoSync] Starting watch position...');
+    console.log('[GeoSync] Starting native watch position...');
     const id = await Geolocation.watchPosition(
       { enableHighAccuracy: true, timeout: 10_000 },
       callback
     );
     _syncState.watchId = id;
-    console.log('[GeoSync] Watch position started with ID:', id);
+    console.log('[GeoSync] Native watch position started with ID:', id);
   } catch (err) {
     console.error('[GeoSync] Failed to start watch position:', err);
     throw err;
@@ -111,8 +157,16 @@ export async function startTracking(config: GeoSyncConfig): Promise<void> {
 }
 
 export async function stopTracking(): Promise<void> {
+  if (_syncState.webWatchId !== null) {
+    navigator.geolocation.clearWatch(_syncState.webWatchId);
+    _syncState.webWatchId = null;
+  }
   if (_syncState.watchId) {
-    await Geolocation.clearWatch({ id: _syncState.watchId });
+    try {
+      await Geolocation.clearWatch({ id: _syncState.watchId });
+    } catch (err) {
+      console.warn('[GeoSync] Error clearing native watch:', err);
+    }
     _syncState.watchId = null;
   }
   if (_syncState.pauseTimer) {
@@ -222,7 +276,7 @@ function fireSync(pos: RawPosition): void {
 }
 
 export function getIsTracking(): boolean {
-  return _syncState.watchId !== null;
+  return _syncState.watchId !== null || _syncState.webWatchId !== null;
 }
 
 export function getIsPaused(): boolean {
