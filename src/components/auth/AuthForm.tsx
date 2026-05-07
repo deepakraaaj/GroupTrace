@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../stores/appStore';
 import { Icon } from '../ui/Icon';
+import { supabase } from '../../services/supabaseClient';
 
 const DEFAULT_TEST_PIN = '1234';
 
