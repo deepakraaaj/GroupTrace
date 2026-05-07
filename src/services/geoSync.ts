@@ -65,10 +65,24 @@ export async function startTracking(config: GeoSyncConfig): Promise<void> {
     pauseTimer:        null,
   };
 
-  await Geolocation.requestPermissions();
+  try {
+    console.log('[GeoSync] Requesting location permissions...');
+    await Geolocation.requestPermissions();
+    console.log('[GeoSync] Location permissions granted');
+  } catch (err) {
+    console.error('[GeoSync] Failed to request permissions:', err);
+    throw err;
+  }
 
   const callback: WatchPositionCallback = (position, err) => {
-    if (err || !position) return;
+    if (err) {
+      console.error('[GeoSync] Watch position error:', err);
+      return;
+    }
+    if (!position) {
+      console.warn('[GeoSync] Watch position returned null');
+      return;
+    }
 
     const raw: RawPosition = {
       lat:       position.coords.latitude,
@@ -82,12 +96,18 @@ export async function startTracking(config: GeoSyncConfig): Promise<void> {
     handlePositionUpdate(raw);
   };
 
-  const id = await Geolocation.watchPosition(
-    { enableHighAccuracy: true, timeout: 10_000 },
-    callback
-  );
-
-  _syncState.watchId = id;
+  try {
+    console.log('[GeoSync] Starting watch position...');
+    const id = await Geolocation.watchPosition(
+      { enableHighAccuracy: true, timeout: 10_000 },
+      callback
+    );
+    _syncState.watchId = id;
+    console.log('[GeoSync] Watch position started with ID:', id);
+  } catch (err) {
+    console.error('[GeoSync] Failed to start watch position:', err);
+    throw err;
+  }
 }
 
 export async function stopTracking(): Promise<void> {
@@ -132,16 +152,25 @@ export function updatePrivacy(privacy: PrivacyMode): void {
 function handlePositionUpdate(pos: RawPosition): void {
   if (!_config) return;
 
+  console.log('[GeoSync] Position update:', { lat: pos.lat, lng: pos.lng, accuracy: pos.accuracy });
+
   // Always update local UI state regardless of sync threshold
   _config.onPositionUpdate(pos);
 
-  if (_syncState.isPaused) return;
+  if (_syncState.isPaused) {
+    console.log('[GeoSync] Tracking paused');
+    return;
+  }
 
   // Anonymous privacy mode: never push to backend
-  if (_config.privacy === 'anonymous') return;
+  if (_config.privacy === 'anonymous') {
+    console.log('[GeoSync] Privacy mode: anonymous');
+    return;
+  }
 
   const shouldSync = checkSyncThreshold(pos);
   if (shouldSync) {
+    console.log('[GeoSync] Sync threshold met, firing sync');
     fireSync(pos);
   }
 }

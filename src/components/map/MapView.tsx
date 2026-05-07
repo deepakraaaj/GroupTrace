@@ -142,7 +142,19 @@ export function MapView({ initialLat = 20.5937, initialLng = 78.9629, initialZoo
   // Pan to my position on first GPS fix
   const hasCenteredRef = useRef(false);
   useEffect(() => {
-    if (!mapRef.current || !myPosition || hasCenteredRef.current) return;
+    if (!mapRef.current) {
+      console.log('[MapView] Map not ready yet');
+      return;
+    }
+    if (!myPosition) {
+      console.log('[MapView] No position yet');
+      return;
+    }
+    if (hasCenteredRef.current) {
+      console.log('[MapView] Already centered');
+      return;
+    }
+    console.log('[MapView] Centering map on my position:', myPosition);
     mapRef.current.setCenter([myPosition.lng, myPosition.lat]);
     hasCenteredRef.current = true;
   }, [myPosition]);

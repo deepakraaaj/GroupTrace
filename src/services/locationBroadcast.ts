@@ -18,8 +18,13 @@ export async function broadcastLocation(
       p_heading:  position.heading,
     });
 
-    if (error) throw error;
-  } catch {
+    if (error) {
+      console.error('[LocationBroadcast] sync_location RPC error:', error);
+      throw error;
+    }
+    console.log('[LocationBroadcast] Location synced:', { lat: position.lat, lng: position.lng });
+  } catch (err) {
+    console.error('[LocationBroadcast] Failed to sync location:', err);
     // Network unavailable — store locally for later flush
     await enqueueLocation(groupId, userId, position);
   }

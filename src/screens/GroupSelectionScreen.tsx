@@ -36,21 +36,33 @@ export function GroupSelectionScreen() {
 
       if (joinError) throw joinError;
 
-      // The RPC returns { r_group_id, r_group_name, r_context }
-      const group = Array.isArray(data) ? data[0] : data;
+      // The RPC returns { group_id, group_name, context }
+      const rpcResult = Array.isArray(data) ? data[0] : data;
+      const groupId = rpcResult.group_id;
+
+      if (!groupId) {
+        throw new Error('Failed to get group ID from join response');
+      }
+
+      console.log('[Pairing] Joined group:', groupId);
+
+      // Fetch full group data including organizer_id and settings
+      const { data: groupData, error: fetchError } = await supabase
+        .from('groups')
+        .select('id, short_code, name, context, organizer_id, settings')
+        .eq('id', groupId)
+        .single();
+
+      if (fetchError || !groupData) throw fetchError || new Error('Failed to fetch group data');
 
       useAppStore.setState({
         activeGroup: {
-          id:           group.r_group_id,
-          short_code:   partnerPin,
-          name:         group.r_group_name,
-          context:      group.r_context,
-          organizer_id: '', // Will be handled by the group data from DB
-          settings: {
-            separationThresholdMeters: 100,
-            syncThresholdMeters:       20,
-            syncThresholdSeconds:      30,
-          },
+          id:           groupData.id,
+          short_code:   groupData.short_code,
+          name:         groupData.name,
+          context:      groupData.context,
+          organizer_id: groupData.organizer_id,
+          settings:     groupData.settings,
           myRole: 'member',
         },
       });

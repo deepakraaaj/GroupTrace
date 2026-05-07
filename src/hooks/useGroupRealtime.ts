@@ -38,19 +38,33 @@ export function useGroupRealtime() {
 
     // Seed initial member data from DB
     const seedMembers = async () => {
+      console.log('[GroupRealtime] Seeding members for group:', groupId);
+
       // Fetch latest location per member
-      const { data: locs } = await supabase
+      const { data: locs, error: locsError } = await supabase
         .from('group_locations')
         .select('*')
         .eq('group_id', groupId)
         .gte('timestamp', new Date(Date.now() - 5 * 60 * 1000).toISOString())
         .order('timestamp', { ascending: false });
 
-      const { data: members } = await supabase
+      if (locsError) {
+        console.error('[GroupRealtime] Failed to fetch locations:', locsError);
+        return;
+      }
+
+      const { data: members, error: membersError } = await supabase
         .from('group_members')
         .select('user_id, role, users(id, display_name, avatar_color)')
         .eq('group_id', groupId)
         .eq('is_active', true);
+
+      if (membersError) {
+        console.error('[GroupRealtime] Failed to fetch members:', membersError);
+        return;
+      }
+
+      console.log('[GroupRealtime] Fetched locations:', locs?.length || 0, 'members:', members?.length || 0);
 
       if (!locs || !members) return;
 
@@ -75,6 +89,7 @@ export function useGroupRealtime() {
         });
       }
 
+      console.log('[GroupRealtime] Seeded', memberDataRef.current.size, 'members from DB');
       rebuildGroupState();
     };
 
@@ -172,11 +187,23 @@ export function useGroupRealtime() {
           seedMembers();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`[GroupRealtime] Subscribed to group ${groupId}`);
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error(`[GroupRealtime] Channel error for group ${groupId}`);
+        }
+      });
 
     function rebuildGroupState() {
       const members = Array.from(memberDataRef.current.values());
       const state   = computeGroupState(members, groupSettings, groupContext);
+      console.log('[GroupRealtime] Built group state:', {
+        memberCount: members.length,
+        centerLat: state.centerLat,
+        centerLng: state.centerLng,
+        separatedCount: state.separatedCount
+      });
       setGroupState(state);
     }
 

@@ -50,12 +50,22 @@ export function MarkerLayer({ map }: Props) {
   const markersRef = useRef<Map<string, { marker: maplibregl.Marker; el: HTMLElement }>>(new Map());
 
   useEffect(() => {
-    if (!groupState) return;
+    if (!groupState) {
+      console.log('[MarkerLayer] No group state');
+      return;
+    }
 
     const members      = groupState.members;
     const myId         = user?.id;
     const organizerId  = activeGroup?.organizer_id;
     const currentIds   = new Set(members.map((m) => m.userId));
+
+    console.log('[MarkerLayer] Rendering members:', {
+      count: members.length,
+      myId,
+      organizerId,
+      memberIds: Array.from(currentIds)
+    });
 
     // Remove stale markers
     for (const [uid, { marker }] of markersRef.current.entries()) {
