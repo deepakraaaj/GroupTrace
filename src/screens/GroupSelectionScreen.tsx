@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../stores/appStore';
 import { Icon } from '../components/ui/Icon';
+import { supabase } from '../services/supabaseClient';
 
 export function GroupSelectionScreen() {
   const navigate       = useNavigate();
@@ -27,16 +28,24 @@ export function GroupSelectionScreen() {
         throw new Error('You cannot pair with your own PIN');
       }
 
-      const groupId = `pair-${[user?.id?.slice(-4), partnerPin].sort().join('-')}`;
-      const groupName = `${user?.display_name} ↔ Partner`;
+      // Call the database to join the group that corresponds to the partner's PIN
+      const { data, error: joinError } = await supabase.rpc('join_group_by_code', {
+        p_user_id: user?.id,
+        p_code: partnerPin
+      });
+
+      if (joinError) throw joinError;
+
+      // The RPC returns { group_id, group_name, context }
+      const group = Array.isArray(data) ? data[0] : data;
 
       useAppStore.setState({
         activeGroup: {
-          id:           groupId,
+          id:           group.group_id,
           short_code:   partnerPin,
-          name:         groupName,
-          context:      'family',
-          organizer_id: user?.id ?? '',
+          name:         group.group_name,
+          context:      group.context,
+          organizer_id: '', // Will be handled by the group data from DB
           settings: {
             separationThresholdMeters: 100,
             syncThresholdMeters:       20,
@@ -48,7 +57,8 @@ export function GroupSelectionScreen() {
 
       navigate('/ride-setup');
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Pairing failed');
+      console.error('Pairing Error:', e);
+      setError(e instanceof Error ? e.message : 'Pairing failed. Make sure your partner has signed in.');
     } finally {
       setLoading(false);
     }

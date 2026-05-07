@@ -34,8 +34,48 @@ export function AuthForm() {
         throw new Error('PIN must be exactly 4 digits');
       }
 
-      const userId = `pin-${pin}`;
+      // 1. Check if we already have a UUID for this PIN locally, otherwise generate one
+      let userId = localStorage.getItem('grouptrace_user_id');
+      if (!userId) {
+        userId = crypto.randomUUID();
+        localStorage.setItem('grouptrace_user_id', userId);
+      }
+      
       const userColor = randomColor();
+
+      // 2. Register/Update user in public.users table
+      const { error: userError } = await supabase
+        .from('users')
+        .upsert({
+          id: userId,
+          display_name: name.trim(),
+          avatar_color: userColor,
+        });
+
+      if (userError) throw userError;
+
+      // 3. Create their "Personal Group" (so others can join them via PIN)
+      // This uses a RPC or a direct insert if permissions allow
+      const { data: groupData, error: groupError } = await supabase
+        .from('groups')
+        .upsert({
+          short_code: pin,
+          name: `${name.trim()}'s Session`,
+          context: 'family',
+          organizer_id: userId,
+        }, { onConflict: 'short_code' })
+        .select()
+        .single();
+
+      // If they are the organizer, they also need to be a member
+      if (groupData) {
+        await supabase.from('group_members').upsert({
+          group_id: groupData.id,
+          user_id: userId,
+          role: 'organizer',
+          is_active: true
+        });
+      }
 
       setUser({
         id: userId,
@@ -51,7 +91,8 @@ export function AuthForm() {
 
       navigate('/', { replace: true });
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Invalid PIN');
+      console.error('Auth Error:', e);
+      setError(e instanceof Error ? e.message : 'Registration failed');
     } finally {
       setLoading(false);
     }
