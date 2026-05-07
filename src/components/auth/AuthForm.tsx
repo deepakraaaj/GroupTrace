@@ -55,17 +55,41 @@ export function AuthForm() {
 
       if (userError) throw userError;
 
-      // 3. Create their "Personal Group" using the create_group RPC
-      // This ensures proper default settings are applied based on context
-      const { error: groupError } = await supabase.rpc('create_group', {
-        p_organizer_id:  userId,
-        p_name:          `${name.trim()}'s Session`,
-        p_context:       'family',
-        p_display_name:  name.trim(),
-        p_avatar_color:  userColor,
-      });
+      // 3. Create their "Personal Group" with proper settings
+      const { data: groupData, error: groupError } = await supabase
+        .from('groups')
+        .insert({
+          short_code: pin,
+          name: `${name.trim()}'s Session`,
+          context: 'family',
+          organizer_id: userId,
+          settings: {
+            separationThresholdMeters: 100,
+            syncThresholdMeters: 20,
+            syncThresholdSeconds: 30,
+          },
+        })
+        .select()
+        .single();
 
       if (groupError) throw groupError;
+
+      // Add organizer as a member
+      if (groupData) {
+        const { error: memberError } = await supabase
+          .from('group_members')
+          .insert({
+            group_id: groupData.id,
+            user_id: userId,
+            role: 'organizer',
+            is_active: true,
+          });
+
+        if (memberError && memberError.code !== 'PGRST116') {
+          // PGRST116 is unique violation, which is fine if already exists
+          throw memberError;
+        }
+      }
 
       setUser({
         id: userId,
