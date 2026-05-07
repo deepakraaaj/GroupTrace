@@ -325,16 +325,15 @@ export function GroupSelectionScreen() {
         }
 
         .dash-content {
-          padding: 16px;
-          width: 100%;
-          max-width: 1200px;
+          padding: 40px 20px;
+          max-width: 1400px;
           margin: 0 auto;
         }
         .dash-grid {
-          display: flex;
-          flex-direction: column;
-          gap: 24px;
-          width: 100%;
+          display: grid;
+          grid-template-columns: 320px 1fr 300px;
+          gap: 40px;
+          align-items: start;
         }
 
         @media (max-width: 1100px) {
