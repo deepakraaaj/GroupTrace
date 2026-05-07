@@ -28,32 +28,42 @@ export function GroupSelectionScreen() {
         throw new Error('You cannot pair with your own PIN');
       }
 
-      // Call the database to join the group that corresponds to the partner's PIN
-      const { data, error: joinError } = await supabase.rpc('join_group_by_code', {
-        p_user_id: user?.id,
-        p_code: partnerPin
-      });
-
-      if (joinError) throw joinError;
-
-      // The RPC returns { group_id, group_name, context }
-      const rpcResult = Array.isArray(data) ? data[0] : data;
-      const groupId = rpcResult.group_id;
-
-      if (!groupId) {
-        throw new Error('Failed to get group ID from join response');
+      if (!user?.id) {
+        throw new Error('You must be signed in to pair');
       }
 
-      console.log('[Pairing] Joined group:', groupId);
-
-      // Fetch full group data including organizer_id and settings
+      // 1. Find the group by short_code (PIN) — no RPC needed
       const { data: groupData, error: fetchError } = await supabase
         .from('groups')
         .select('id, short_code, name, context, organizer_id, settings')
-        .eq('id', groupId)
-        .single();
+        .eq('short_code', partnerPin)
+        .eq('is_active', true)
+        .maybeSingle();
 
-      if (fetchError || !groupData) throw fetchError || new Error('Failed to fetch group data');
+      if (fetchError) throw fetchError;
+      if (!groupData) {
+        throw new Error('No one has signed in with that PIN yet. Make sure your partner has signed in first.');
+      }
+
+      console.log('[Pairing] Found group:', groupData.id);
+
+      // 2. Add ourselves as a member (upsert is idempotent)
+      const { error: memberError } = await supabase
+        .from('group_members')
+        .upsert({
+          group_id: groupData.id,
+          user_id: user.id,
+          role: 'member',
+          is_active: true,
+          last_seen_at: new Date().toISOString(),
+        }, { onConflict: 'group_id,user_id' });
+
+      if (memberError) {
+        console.error('[Pairing] Member upsert error:', memberError);
+        throw memberError;
+      }
+
+      console.log('[Pairing] Joined group as member');
 
       useAppStore.setState({
         activeGroup: {
