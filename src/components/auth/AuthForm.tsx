@@ -55,10 +55,10 @@ export function AuthForm() {
 
       if (userError) throw userError;
 
-      // 3. Create their "Personal Group" with proper settings
+      // 3. Create or update their "Personal Group" with proper settings
       const { data: groupData, error: groupError } = await supabase
         .from('groups')
-        .insert({
+        .upsert({
           short_code: pin,
           name: `${name.trim()}'s Session`,
           context: 'family',
@@ -68,7 +68,7 @@ export function AuthForm() {
             syncThresholdMeters: 20,
             syncThresholdSeconds: 30,
           },
-        })
+        }, { onConflict: 'short_code' })
         .select()
         .single();
 
@@ -78,16 +78,15 @@ export function AuthForm() {
       if (groupData) {
         const { error: memberError } = await supabase
           .from('group_members')
-          .insert({
+          .upsert({
             group_id: groupData.id,
             user_id: userId,
             role: 'organizer',
             is_active: true,
-          });
+          }, { onConflict: 'group_id,user_id' });
 
-        if (memberError && memberError.code !== 'PGRST116') {
-          // PGRST116 is unique violation, which is fine if already exists
-          throw memberError;
+        if (memberError) {
+          console.error('Member insert error (expected if already member):', memberError);
         }
       }
 
