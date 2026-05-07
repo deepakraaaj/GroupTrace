@@ -75,7 +75,7 @@ export function AuthForm() {
           user_id: userId,
           role: 'organizer',
           is_active: true
-        });
+        }, { onConflict: 'group_id,user_id' });
       }
 
       setUser({

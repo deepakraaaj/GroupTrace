@@ -36,15 +36,15 @@ export function GroupSelectionScreen() {
 
       if (joinError) throw joinError;
 
-      // The RPC returns { group_id, group_name, context }
+      // The RPC returns { r_group_id, r_group_name, r_context }
       const group = Array.isArray(data) ? data[0] : data;
 
       useAppStore.setState({
         activeGroup: {
-          id:           group.group_id,
+          id:           group.r_group_id,
           short_code:   partnerPin,
-          name:         group.group_name,
-          context:      group.context,
+          name:         group.r_group_name,
+          context:      group.r_context,
           organizer_id: '', // Will be handled by the group data from DB
           settings: {
             separationThresholdMeters: 100,
