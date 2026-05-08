@@ -31,18 +31,24 @@ export function App() {
   const location       = useLocation();
 
   useEffect(() => {
-    const pin   = localStorage.getItem('grouptrace_pin');
-    const name  = localStorage.getItem('grouptrace_name');
-    const color = localStorage.getItem('grouptrace_color');
+    const userId = localStorage.getItem('grouptrace_user_id');
+    const pin    = localStorage.getItem('grouptrace_pin');
+    const name   = localStorage.getItem('grouptrace_name');
+    const color  = localStorage.getItem('grouptrace_color');
 
-    if (pin && name && color) {
+    if (userId && pin && name && color) {
       setUser({
-        id: `pin-${pin}`,
+        id: userId,
         display_name: name,
         avatar_color: color,
         phone_hash: null,
         device_id: null,
       });
+    } else if (pin || name || color) {
+      // Legacy session predates the UUID-backed auth flow — force re-auth.
+      localStorage.removeItem('grouptrace_pin');
+      localStorage.removeItem('grouptrace_name');
+      localStorage.removeItem('grouptrace_color');
     }
 
     setAuthLoading(false);
