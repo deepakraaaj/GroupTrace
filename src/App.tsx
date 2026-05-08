@@ -1,99 +1,74 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAppStore } from './stores/appStore';
-import { AuthScreen } from './screens/AuthScreen';
-import { GroupSelectionScreen } from './screens/GroupSelectionScreen';
-import { JoinScreen } from './screens/JoinScreen';
-import { CreateScreen } from './screens/CreateScreen';
-import { RideSetupScreen } from './screens/RideSetupScreen';
+import { OnboardingScreen } from './screens/OnboardingScreen';
+import { HomeScreen } from './screens/HomeScreen';
+import { StartSessionScreen } from './screens/StartSessionScreen';
+import { JoinSessionScreen } from './screens/JoinSessionScreen';
 import { ActiveRideScreen } from './screens/ActiveRideScreen';
 import { PostRideScreen } from './screens/PostRideScreen';
 import { PageTransition } from './components/ui/PageTransition';
+import { getUserName, getOrCreateDeviceId } from './utils/deviceId';
 
-function RequireAuth({ children }: { children: React.ReactNode }) {
-  const user          = useAppStore((s) => s.user);
-  const isAuthLoading = useAppStore((s) => s.isAuthLoading);
+function RequireOnboarding({ children }: { children: React.ReactNode }) {
+  const userName = getUserName();
 
-  if (isAuthLoading) {
+  if (!userName) return <Navigate to="/onboarding" replace />;
+  return <>{children}</>;
+}
+
+export function App() {
+  const location = useLocation();
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    // Initialize device ID and check if onboarded
+    getOrCreateDeviceId();
+    setIsReady(true);
+  }, []);
+
+  if (!isReady) {
     return (
       <div className="screen screen--center">
         <div className="loading-spinner" />
       </div>
     );
   }
-  if (!user) return <Navigate to="/auth" replace />;
-  return <>{children}</>;
-}
-
-export function App() {
-  const setUser        = useAppStore((s) => s.setUser);
-  const setAuthLoading = useAppStore((s) => s.setAuthLoading);
-  const location       = useLocation();
-
-  useEffect(() => {
-    const userId = localStorage.getItem('grouptrace_user_id');
-    const pin    = localStorage.getItem('grouptrace_pin');
-    const name   = localStorage.getItem('grouptrace_name');
-    const color  = localStorage.getItem('grouptrace_color');
-
-    if (userId && pin && name && color) {
-      setUser({
-        id: userId,
-        display_name: name,
-        avatar_color: color,
-        phone_hash: null,
-        device_id: null,
-      });
-    } else if (pin || name || color) {
-      // Legacy session predates the UUID-backed auth flow — force re-auth.
-      localStorage.removeItem('grouptrace_pin');
-      localStorage.removeItem('grouptrace_name');
-      localStorage.removeItem('grouptrace_color');
-    }
-
-    setAuthLoading(false);
-  }, []);
 
   return (
     <Routes location={location} key={location.pathname}>
-      <Route path="/auth" element={<PageTransition><AuthScreen /></PageTransition>} />
-      
+      <Route path="/onboarding" element={<PageTransition><OnboardingScreen /></PageTransition>} />
+
       <Route path="/" element={
-        <RequireAuth>
-          <PageTransition><GroupSelectionScreen /></PageTransition>
-        </RequireAuth>
+        <RequireOnboarding>
+          <PageTransition><HomeScreen /></PageTransition>
+        </RequireOnboarding>
       } />
-      
-      <Route path="/join" element={
-        <RequireAuth>
-          <PageTransition><JoinScreen /></PageTransition>
-        </RequireAuth>
+
+      <Route path="/start-session" element={
+        <RequireOnboarding>
+          <PageTransition><StartSessionScreen /></PageTransition>
+        </RequireOnboarding>
       } />
-      
-      <Route path="/create" element={
-        <RequireAuth>
-          <PageTransition><CreateScreen /></PageTransition>
-        </RequireAuth>
+
+      <Route path="/join-session" element={
+        <RequireOnboarding>
+          <PageTransition><JoinSessionScreen /></PageTransition>
+        </RequireOnboarding>
       } />
-      
-      <Route path="/ride-setup" element={
-        <RequireAuth>
-          <PageTransition><RideSetupScreen /></PageTransition>
-        </RequireAuth>
-      } />
-      
-      <Route path="/active-ride" element={
-        <RequireAuth>
+
+      <Route path="/ride/:sessionId" element={
+        <RequireOnboarding>
           <PageTransition><ActiveRideScreen /></PageTransition>
-        </RequireAuth>
+        </RequireOnboarding>
       } />
-      
-      <Route path="/post-ride" element={
-        <RequireAuth>
+
+      <Route path="/post-ride/:sessionId" element={
+        <RequireOnboarding>
           <PageTransition><PostRideScreen /></PageTransition>
-        </RequireAuth>
+        </RequireOnboarding>
       } />
-      
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
