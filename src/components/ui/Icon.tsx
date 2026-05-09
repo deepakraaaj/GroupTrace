@@ -15,15 +15,20 @@ export type IconName =
   | 'zap'
   | 'key'
   | 'chevron-right'
+  | 'chevron-up'
+  | 'chevron-down'
   | 'history'
   | 'settings'
   | 'check'
+  | 'check-circle'
   | 'alert-circle'
   | 'map'
   | 'user'
   | 'plus'
   | 'search'
-  | 'log-out';
+  | 'log-out'
+  | 'share-2'
+  | 'info';
 
 interface IconProps extends React.SVGProps<SVGSVGElement> {
   name: IconName;
@@ -192,6 +197,35 @@ export function Icon({ name, size = 24, className, ...props }: IconProps) {
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
             <polyline points="16 17 21 12 16 7" />
             <line x1="21" y1="12" x2="9" y2="12" />
+          </>
+        );
+      case 'chevron-up':
+        return <polyline points="18 15 12 9 6 15" />;
+      case 'chevron-down':
+        return <polyline points="6 9 12 15 18 9" />;
+      case 'check-circle':
+        return (
+          <>
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+            <polyline points="22 4 12 14.01 9 11.01" />
+          </>
+        );
+      case 'share-2':
+        return (
+          <>
+            <circle cx="18" cy="5" r="3" />
+            <circle cx="6" cy="12" r="3" />
+            <circle cx="18" cy="19" r="3" />
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+          </>
+        );
+      case 'info':
+        return (
+          <>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="16" x2="12" y2="12" />
+            <line x1="12" y1="8" x2="12.01" y2="8" />
           </>
         );
       default:

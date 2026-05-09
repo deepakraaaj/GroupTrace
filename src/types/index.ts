@@ -1,3 +1,5 @@
+import type { IconName } from '../components/ui/Icon';
+
 // ─────────────────────────────────────────────
 // Enums / Literal Unions
 // ─────────────────────────────────────────────
@@ -96,7 +98,7 @@ export interface DbGroupPin {
 
 export interface DbGroupMessage {
   id: string;
-  group_id: string;
+  room_id: string;
   user_id: string;
   message: string;
   message_type: MessageType;
@@ -351,7 +353,7 @@ export interface RealtimeMemberPayload {
 
 export interface ContextMeta {
   label: string;
-  icon: string;
+  icon: IconName;
   description: string;
   checklist: string[];
 }
