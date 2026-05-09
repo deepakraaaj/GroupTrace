@@ -13,14 +13,15 @@ export function AwarenessPanel() {
     separatedCount,
     avgSpeedKmh,
     allTogether,
+    members,
   } = useGroupState();
-  const activeGroup = useAppStore((s) => s.activeGroup);
+  const activeRoom = useAppStore((s) => s.activeRoom);
 
-  if (!context || !activeGroup) return null;
+  if (!context || !activeRoom) return null;
 
   const meta = CONTEXT_META[context];
   const hasMembers = riderCount > 0;
-  
+
   const statusLabel = !hasMembers
     ? 'Awaiting first ping'
     : separatedCount > 0
@@ -37,9 +38,9 @@ export function AwarenessPanel() {
              <Icon name="users" size={20} />
           </div>
           <div className="awareness-info">
-            <h2 className="awareness-title">{activeGroup.name}</h2>
+            <h2 className="awareness-title">{activeRoom.name}</h2>
             <div className="awareness-meta">
-               <span className="meta-item">#{activeGroup.short_code}</span>
+               <span className="meta-item">#{activeRoom.code}</span>
                <span className="meta-divider" />
                <span className="meta-item">{meta.label}</span>
             </div>
@@ -68,6 +69,19 @@ export function AwarenessPanel() {
           </span>
         </div>
       </div>
+
+      {hasMembers && (
+        <div className="awareness-riders-section">
+          <div className="riders-header">
+            <h3>RIDERS ({riderCount})</h3>
+          </div>
+          <div className="riders-list">
+            {members.map((member) => (
+              <RiderCard key={member.userId} member={member} />
+            ))}
+          </div>
+        </div>
+      )}
 
       <style>{`
         .awareness-panel-modern {
@@ -188,6 +202,53 @@ export function AwarenessPanel() {
         }
         .text-alert { color: var(--color-alert); }
         .text-good { color: var(--color-accent); }
+
+        .awareness-riders-section {
+          margin-top: 20px;
+          padding-top: 16px;
+          border-top: 1px solid rgba(255, 255, 255, 0.05);
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .riders-header {
+          margin-bottom: 4px;
+        }
+
+        .riders-header h3 {
+          font-size: 10px;
+          font-weight: 800;
+          color: var(--color-muted);
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          margin: 0;
+        }
+
+        .riders-list {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          max-height: 400px;
+          overflow-y: auto;
+        }
+
+        .riders-list::-webkit-scrollbar {
+          width: 4px;
+        }
+
+        .riders-list::-webkit-scrollbar-track {
+          background: transparent;
+        }
+
+        .riders-list::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 2px;
+        }
+
+        .riders-list::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.2);
+        }
       `}</style>
     </div>
   );

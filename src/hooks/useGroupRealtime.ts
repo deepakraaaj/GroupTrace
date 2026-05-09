@@ -4,8 +4,8 @@ import { computeGroupState, type RawMemberData } from '../services/groupStateEng
 import { flushQueue, getQueueLength } from '../services/offlineQueue';
 import { useAppStore } from '../stores/appStore';
 import type {
-  DbGroupLocation,
-  DbGroupMember,
+  DbRoomLocation,
+  DbRoomMember,
   DbGroupMessage,
   DbGroupPin,
   MemberRole,
@@ -17,7 +17,7 @@ import type {
  * Recomputes group state on every location event (client-side, no extra RPC).
  */
 export function useGroupRealtime() {
-  const activeGroup   = useAppStore((s) => s.activeGroup);
+  const activeRoom    = useAppStore((s) => s.activeRoom);
   const user          = useAppStore((s) => s.user);
   const setGroupState = useAppStore((s) => s.setGroupState);
   const addMessage    = useAppStore((s) => s.addMessage);
@@ -29,24 +29,23 @@ export function useGroupRealtime() {
   const memberDataRef = useRef<Map<string, RawMemberData>>(new Map());
 
   useEffect(() => {
-    if (!activeGroup || !user) return;
-    const groupId       = activeGroup.id;
-    const groupSettings = activeGroup.settings;
-    const groupContext  = activeGroup.context;
+    if (!activeRoom || !user) return;
+    const roomId        = activeRoom.id;
+    const groupSettings = activeRoom.settings;
+    const groupContext  = activeRoom.context;
 
     memberDataRef.current.clear();
 
     // Seed initial member data from DB
     const seedMembers = async () => {
-      console.log('[GroupRealtime] Seeding members for group:', groupId);
+      console.log('[GroupRealtime] Seeding members for group:', roomId);
 
-      // Fetch latest location per member
+      // Fetch latest location per member (no time filter - get all available)
       const { data: locs, error: locsError } = await supabase
-        .from('group_locations')
+        .from('room_locations')
         .select('*')
-        .eq('group_id', groupId)
-        .gte('timestamp', new Date(Date.now() - 5 * 60 * 1000).toISOString())
-        .order('timestamp', { ascending: false });
+        .eq('room_id', roomId)
+        .order('updated_at', { ascending: false });
 
       if (locsError) {
         console.error('[GroupRealtime] Failed to fetch locations:', locsError);
@@ -54,10 +53,9 @@ export function useGroupRealtime() {
       }
 
       const { data: members, error: membersError } = await supabase
-        .from('group_members')
+        .from('room_members')
         .select('user_id, role, users(id, display_name, avatar_color)')
-        .eq('group_id', groupId)
-        .eq('is_active', true);
+        .eq('room_id', roomId);
 
       if (membersError) {
         console.error('[GroupRealtime] Failed to fetch members:', membersError);
@@ -77,7 +75,7 @@ export function useGroupRealtime() {
 
       // Latest location per user (locs already ordered desc, so first occurrence wins)
       const seen = new Set<string>();
-      for (const loc of locs as DbGroupLocation[]) {
+      for (const loc of locs as DbRoomLocation[]) {
         if (seen.has(loc.user_id)) continue;
         seen.add(loc.user_id);
         const meta = memberMeta.get(loc.user_id);
@@ -114,26 +112,26 @@ export function useGroupRealtime() {
 
     // Subscribe to per-group channel
     const channel = supabase
-      .channel(`group:${groupId}`)
+      .channel(`room:${roomId}`)
       .on(
         'postgres_changes',
         {
           event:  'INSERT',
           schema: 'public',
-          table:  'group_locations',
-          filter: `group_id=eq.${groupId}`,
+          table:  'room_locations',
+          filter: `room_id=eq.${roomId}`,
         },
         async (payload) => {
-          const loc = payload.new as DbGroupLocation;
+          const loc = payload.new as DbRoomLocation;
           const existing = memberDataRef.current.get(loc.user_id);
           if (existing) {
             memberDataRef.current.set(loc.user_id, { ...existing, location: loc });
           } else {
             // Fetch user info for first-seen member
             const { data } = await supabase
-              .from('group_members')
+              .from('room_members')
               .select('role, users(id, display_name, avatar_color)')
-              .eq('group_id', groupId)
+              .eq('room_id', roomId)
               .eq('user_id', loc.user_id)
               .single();
             if (data) {
@@ -154,7 +152,7 @@ export function useGroupRealtime() {
           event:  'INSERT',
           schema: 'public',
           table:  'group_messages',
-          filter: `group_id=eq.${groupId}`,
+          filter: `room_id=eq.${roomId}`,
         },
         (payload) => {
           addMessage(payload.new as DbGroupMessage);
@@ -166,7 +164,7 @@ export function useGroupRealtime() {
           event:  '*',
           schema: 'public',
           table:  'group_pins',
-          filter: `group_id=eq.${groupId}`,
+          filter: `room_id=eq.${roomId}`,
         },
         (payload) => {
           if ((payload.new as DbGroupPin).is_active) {
@@ -180,7 +178,7 @@ export function useGroupRealtime() {
           event:  'UPDATE',
           schema: 'public',
           table:  'group_members',
-          filter: `group_id=eq.${groupId}`,
+          filter: `room_id=eq.${roomId}`,
         },
         (_payload) => {
           // Member joined/left — re-seed
@@ -189,9 +187,9 @@ export function useGroupRealtime() {
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log(`[GroupRealtime] Subscribed to group ${groupId}`);
+          console.log(`[GroupRealtime] Subscribed to room ${roomId}`);
         } else if (status === 'CHANNEL_ERROR') {
-          console.error(`[GroupRealtime] Channel error for group ${groupId}`);
+          console.error(`[GroupRealtime] Channel error for room ${roomId}`);
         }
       });
 
@@ -211,5 +209,5 @@ export function useGroupRealtime() {
       supabase.removeChannel(channel);
       window.removeEventListener('online', handleOnline);
     };
-  }, [activeGroup?.id, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activeRoom?.id, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 }

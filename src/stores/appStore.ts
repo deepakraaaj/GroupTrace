@@ -2,8 +2,8 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type {
   AppUser,
-  ActiveGroup,
-  GroupListItem,
+  ActiveRoom,
+  RoomListItem,
   GroupState,
   RawPosition,
   ActiveTrip,
@@ -19,11 +19,11 @@ interface AppState {
   user: AppUser | null;
   isAuthLoading: boolean;
 
-  // Group
-  activeGroup: ActiveGroup | null;
-  groupList: GroupListItem[];
+  // Room
+  activeRoom: ActiveRoom | null;
+  roomList: RoomListItem[];
 
-  // Group realtime state
+  // Room realtime state
   groupState: GroupState | null;
 
   // My tracking state
@@ -53,10 +53,10 @@ interface AppState {
   setUser: (user: AppUser | null) => void;
   setAuthLoading: (v: boolean) => void;
 
-  // Actions — groups
-  setActiveGroup: (group: ActiveGroup | null) => void;
-  setGroupList: (list: GroupListItem[]) => void;
-  addGroupToList: (item: GroupListItem) => void;
+  // Actions — rooms
+  setActiveRoom: (room: ActiveRoom | null) => void;
+  setRoomList: (list: RoomListItem[]) => void;
+  addRoomToList: (item: RoomListItem) => void;
 
   // Actions — realtime state
   setGroupState: (state: GroupState) => void;
@@ -104,8 +104,8 @@ export const useAppStore = create<AppState>()(
     (set) => ({
       user:               null,
       isAuthLoading:      true,
-      activeGroup:        null,
-      groupList:          [],
+      activeRoom:         null,
+      roomList:           [],
       groupState:         null,
       myPosition:         null,
       isTracking:         false,
@@ -122,11 +122,11 @@ export const useAppStore = create<AppState>()(
       setUser:           (user) => set({ user }),
       setAuthLoading:    (v)    => set({ isAuthLoading: v }),
 
-      setActiveGroup:    (group) => set({ activeGroup: group }),
-      setGroupList:      (list)  => set({ groupList: list }),
-      addGroupToList:    (item)  =>
+      setActiveRoom:     (room) => set({ activeRoom: room }),
+      setRoomList:       (list) => set({ roomList: list }),
+      addRoomToList:     (item) =>
         set((s) => ({
-          groupList: [item, ...s.groupList.filter((g) => g.id !== item.id)].slice(0, 10),
+          roomList: [item, ...s.roomList.filter((r) => r.id !== item.id)].slice(0, 20),
         })),
 
       setGroupState: (state) => set({ groupState: state }),
@@ -156,7 +156,7 @@ export const useAppStore = create<AppState>()(
 
       resetRideState: () =>
         set({
-          activeGroup:        null,
+          activeRoom:         null,
           groupState:         null,
           myPosition:         null,
           isTracking:         false,
@@ -170,11 +170,11 @@ export const useAppStore = create<AppState>()(
         }),
     }),
     {
-      name: 'grouptrace-storage',
+      name: 'gt-storage',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         user: state.user,
-        groupList: state.groupList,
+        roomList: state.roomList,
         alertPreference: state.alertPreference,
       }),
     }

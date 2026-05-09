@@ -13,12 +13,12 @@ import type {
   GroupContext,
   MemberRole,
   MemberStatus,
-  DbGroupLocation,
+  DbRoomLocation,
   DbUser,
 } from '../types';
 
 export interface RawMemberData {
-  location: DbGroupLocation;
+  location: DbRoomLocation;
   user: DbUser;
   role: MemberRole;
 }
@@ -57,7 +57,7 @@ export function computeGroupState(
     const status: MemberStatus = computeMemberStatus(
       distFromCenter,
       settings.separationThresholdMeters,
-      m.location.timestamp
+      m.location.updated_at
     );
 
     return {
@@ -70,7 +70,7 @@ export function computeGroupState(
       speed:             m.location.speed,
       heading:           m.location.heading,
       accuracy:          m.location.accuracy,
-      timestamp:         new Date(m.location.timestamp).getTime(),
+      timestamp:         new Date(m.location.updated_at).getTime(),
       status,
       distanceFromCenter: distFromCenter,
     };

@@ -1,94 +1,48 @@
 import { useEffect } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { useAppStore } from './stores/appStore';
-import { AuthScreen } from './screens/AuthScreen';
-import { GroupSelectionScreen } from './screens/GroupSelectionScreen';
-import { JoinScreen } from './screens/JoinScreen';
-import { CreateScreen } from './screens/CreateScreen';
+import { HomeScreen } from './screens/HomeScreen';
+import { JoinRoomScreen } from './screens/JoinRoomScreen';
+import { CreateRoomScreen } from './screens/CreateRoomScreen';
 import { RideSetupScreen } from './screens/RideSetupScreen';
 import { ActiveRideScreen } from './screens/ActiveRideScreen';
 import { PostRideScreen } from './screens/PostRideScreen';
 import { PageTransition } from './components/ui/PageTransition';
 
-function RequireAuth({ children }: { children: React.ReactNode }) {
-  const user          = useAppStore((s) => s.user);
-  const isAuthLoading = useAppStore((s) => s.isAuthLoading);
-
-  if (isAuthLoading) {
-    return (
-      <div className="screen screen--center">
-        <div className="loading-spinner" />
-      </div>
-    );
-  }
-  if (!user) return <Navigate to="/auth" replace />;
-  return <>{children}</>;
-}
-
 export function App() {
-  const setUser        = useAppStore((s) => s.setUser);
   const setAuthLoading = useAppStore((s) => s.setAuthLoading);
-  const location       = useLocation();
+  const location = useLocation();
 
   useEffect(() => {
-    const pin   = localStorage.getItem('grouptrace_pin');
-    const name  = localStorage.getItem('grouptrace_name');
-    const color = localStorage.getItem('grouptrace_color');
-
-    if (pin && name && color) {
-      setUser({
-        id: `pin-${pin}`,
-        display_name: name,
-        avatar_color: color,
-        phone_hash: null,
-        device_id: null,
-      });
-    }
-
+    // Auth is handled within HomeScreen now (with inline name setup)
     setAuthLoading(false);
   }, []);
 
   return (
     <Routes location={location} key={location.pathname}>
-      <Route path="/auth" element={<PageTransition><AuthScreen /></PageTransition>} />
-      
       <Route path="/" element={
-        <RequireAuth>
-          <PageTransition><GroupSelectionScreen /></PageTransition>
-        </RequireAuth>
+        <PageTransition><HomeScreen /></PageTransition>
       } />
-      
+
       <Route path="/join" element={
-        <RequireAuth>
-          <PageTransition><JoinScreen /></PageTransition>
-        </RequireAuth>
+        <PageTransition><JoinRoomScreen /></PageTransition>
       } />
-      
+
       <Route path="/create" element={
-        <RequireAuth>
-          <PageTransition><CreateScreen /></PageTransition>
-        </RequireAuth>
+        <PageTransition><CreateRoomScreen /></PageTransition>
       } />
-      
+
       <Route path="/ride-setup" element={
-        <RequireAuth>
-          <PageTransition><RideSetupScreen /></PageTransition>
-        </RequireAuth>
+        <PageTransition><RideSetupScreen /></PageTransition>
       } />
-      
+
       <Route path="/active-ride" element={
-        <RequireAuth>
-          <PageTransition><ActiveRideScreen /></PageTransition>
-        </RequireAuth>
+        <PageTransition><ActiveRideScreen /></PageTransition>
       } />
-      
+
       <Route path="/post-ride" element={
-        <RequireAuth>
-          <PageTransition><PostRideScreen /></PageTransition>
-        </RequireAuth>
+        <PageTransition><PostRideScreen /></PageTransition>
       } />
-      
-      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

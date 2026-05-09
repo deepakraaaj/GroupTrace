@@ -8,7 +8,7 @@ import { GeoSearch } from '../components/map/GeoSearch';
 
 export function RideSetupScreen() {
   const navigate     = useNavigate();
-  const activeGroup  = useAppStore((s) => s.activeGroup);
+  const activeRoom   = useAppStore((s) => s.activeRoom);
   const user         = useAppStore((s) => s.user);
   const setRideSetup = useAppStore((s) => s.setRideSetup);
   const setPrivacyMode = useAppStore((s) => s.setPrivacyMode);
@@ -20,15 +20,15 @@ export function RideSetupScreen() {
   });
 
   const meta = useMemo(
-    () => CONTEXT_META[activeGroup?.context || 'biker'],
-    [activeGroup?.context]
+    () => CONTEXT_META[activeRoom?.context || 'biker'],
+    [activeRoom?.context]
   );
 
   useEffect(() => {
-    if (!activeGroup) {
+    if (!activeRoom) {
       navigate('/', { replace: true });
     }
-  }, [activeGroup, navigate]);
+  }, [activeRoom, navigate]);
 
   const handleLaunch = () => {
     setRideSetup({
@@ -43,7 +43,7 @@ export function RideSetupScreen() {
     navigate('/active-ride');
   };
 
-  if (!activeGroup) return null;
+  if (!activeRoom) return null;
 
   return (
     <div className="screen screen--scroll ride-setup-screen">
@@ -62,7 +62,7 @@ export function RideSetupScreen() {
       <div className="setup-container">
         <section className="setup-hero fade-in">
           <p className="setup-kicker">Ready to start</p>
-          <h1 className="setup-title">{activeGroup.name}</h1>
+          <h1 className="setup-title">{activeRoom.name}</h1>
           <p className="setup-copy">
             {meta.label} session for {user?.display_name}. Location is shared with everyone in the group.
           </p>

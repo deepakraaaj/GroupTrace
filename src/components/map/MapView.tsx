@@ -7,6 +7,7 @@ import { ConnectionLine } from './ConnectionLine';
 import { MarkerLayer } from './MarkerLayer';
 import { PinLayer } from './PinLayer';
 import { SeparationCircle } from './SeparationCircle';
+import { DistanceLayer } from './DistanceLayer';
 
 const DEMO_STYLE_URL = 'https://demotiles.maplibre.org/style.json';
 
@@ -59,7 +60,7 @@ export function MapView({ initialLat = 20.5937, initialLng = 78.9629, initialZoo
 
   const myPosition  = useAppStore((s) => s.myPosition);
   const groupState  = useAppStore((s) => s.groupState);
-  const activeGroup = useAppStore((s) => s.activeGroup);
+  const activeRoom  = useAppStore((s) => s.activeRoom);
   const pins        = useAppStore((s) => s.pins);
   const user        = useAppStore((s) => s.user);
   const rideSetup   = useAppStore((s) => s.rideSetup);
@@ -163,7 +164,7 @@ export function MapView({ initialLat = 20.5937, initialLng = 78.9629, initialZoo
   const destMarkerRef = useRef<maplibregl.Marker | null>(null);
   useEffect(() => {
     if (!mapRef.current || !isLoaded) return;
-    
+
     if (destMarkerRef.current) {
       destMarkerRef.current.remove();
       destMarkerRef.current = null;
@@ -173,13 +174,63 @@ export function MapView({ initialLat = 20.5937, initialLng = 78.9629, initialZoo
       const el = document.createElement('div');
       el.style.cssText = 'font-size:32px; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4)); cursor:pointer;';
       el.textContent = '🚩';
-      
+
       destMarkerRef.current = new maplibregl.Marker({ element: el, anchor: 'bottom' })
         .setLngLat([rideSetup.destinationLng, rideSetup.destinationLat])
         .setPopup(new maplibregl.Popup({ offset: 25 }).setHTML(`<strong>Destination</strong><br/>${rideSetup.destinationName || 'Target'}`))
         .addTo(mapRef.current);
     }
   }, [rideSetup.destinationLat, rideSetup.destinationLng, rideSetup.destinationName, isLoaded]);
+
+  // Auto-fit map to show all riders + perimeter
+  useEffect(() => {
+    if (!mapRef.current || !isLoaded || !groupState || groupState.members.length === 0) {
+      return;
+    }
+
+    const members = groupState.members;
+    const centerLat = groupState.centerLat;
+    const centerLng = groupState.centerLng;
+    const radiusMeters = activeRoom?.settings.separationThresholdMeters ?? 100;
+
+    if (centerLat == null || centerLng == null) return;
+
+    // Calculate bounds of all members + add perimeter padding
+    let minLat = members[0]?.lat ?? centerLat;
+    let maxLat = members[0]?.lat ?? centerLat;
+    let minLng = members[0]?.lng ?? centerLng;
+    let maxLng = members[0]?.lng ?? centerLng;
+
+    for (const member of members) {
+      minLat = Math.min(minLat, member.lat);
+      maxLat = Math.max(maxLat, member.lat);
+      minLng = Math.min(minLng, member.lng);
+      maxLng = Math.max(maxLng, member.lng);
+    }
+
+    // Add perimeter padding: ~100m = ~0.0009 degrees at equator
+    const degreesPerMeter = 1 / 111000;
+    const padding = radiusMeters * degreesPerMeter * 1.2; // 20% extra padding
+
+    const bounds: [number, number, number, number] = [
+      minLng - padding,
+      minLat - padding,
+      maxLng + padding,
+      maxLat + padding,
+    ];
+
+    console.log('[MapView] Fitting map to bounds:', {
+      sw: [bounds[0], bounds[1]],
+      ne: [bounds[2], bounds[3]],
+      memberCount: members.length,
+    });
+
+    mapRef.current.fitBounds(bounds, {
+      padding: 60,
+      duration: 750,
+      maxZoom: 18,
+    });
+  }, [groupState?.members, groupState?.centerLat, groupState?.centerLng, activeRoom?.settings.separationThresholdMeters, isLoaded]);
 
   return (
     <div className="map-wrapper">
@@ -197,7 +248,7 @@ export function MapView({ initialLat = 20.5937, initialLng = 78.9629, initialZoo
           <div className="map-loading">Loading map…</div>
         )}
       </div>
-      {!mapFailed && isLoaded && mapRef.current && groupState && activeGroup && (
+      {!mapFailed && isLoaded && mapRef.current && groupState && activeRoom && (
         <>
           <MarkerLayer map={mapRef.current} />
           <PinLayer map={mapRef.current} pins={pins} />
@@ -214,7 +265,12 @@ export function MapView({ initialLat = 20.5937, initialLng = 78.9629, initialZoo
             map={mapRef.current}
             centerLat={groupState.centerLat}
             centerLng={groupState.centerLng}
-            radiusMeters={activeGroup.settings.separationThresholdMeters}
+            radiusMeters={activeRoom.settings.separationThresholdMeters}
+          />
+          <DistanceLayer
+            map={mapRef.current}
+            members={groupState.members}
+            separationThresholdMeters={activeRoom.settings.separationThresholdMeters}
           />
         </>
       )}

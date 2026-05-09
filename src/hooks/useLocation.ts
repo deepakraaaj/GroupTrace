@@ -10,7 +10,7 @@ import {
 import type { RawPosition } from '../types';
 
 export function useLocation() {
-  const activeGroup   = useAppStore((s) => s.activeGroup);
+  const activeRoom    = useAppStore((s) => s.activeRoom);
   const user          = useAppStore((s) => s.user);
   const rideSetup     = useAppStore((s) => s.rideSetup);
   const setMyPosition = useAppStore((s) => s.setMyPosition);
@@ -29,12 +29,12 @@ export function useLocation() {
   }, []);
 
   useEffect(() => {
-    if (!activeGroup || !user) return;
+    if (!activeRoom || !user) return;
 
     startTracking({
-      groupId:  activeGroup.id,
+      roomId:   activeRoom.id,
       userId:   user.id,
-      settings: activeGroup.settings,
+      settings: activeRoom.settings,
       privacy:  rideSetup.privacyMode,
       onPositionUpdate,
       onSyncFired,
@@ -44,7 +44,7 @@ export function useLocation() {
       stopTracking().then(() => setIsTracking(false));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeGroup?.id, user?.id]);
+  }, [activeRoom?.id, user?.id]);
 
   // When privacy mode changes mid-ride, propagate immediately
   useEffect(() => {

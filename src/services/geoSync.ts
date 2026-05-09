@@ -25,7 +25,7 @@ type OnPositionUpdate = (pos: RawPosition) => void;
 type OnSyncFired     = (pos: RawPosition) => void;
 
 interface GeoSyncConfig {
-  groupId:  string;
+  roomId:   string;
   userId:   string;
   settings: GroupSettings;
   privacy:  PrivacyMode;
@@ -85,6 +85,15 @@ export async function startTracking(config: GeoSyncConfig): Promise<void> {
 
     const webWatchId = navigator.geolocation.watchPosition(
       (position) => {
+        console.log('[GeoSync] 📍 Raw browser geolocation response:', {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          speed: position.coords.speed,
+          heading: position.coords.heading,
+          timestamp: position.timestamp,
+        });
+
         const raw: RawPosition = {
           lat:       position.coords.latitude,
           lng:       position.coords.longitude,
@@ -93,15 +102,25 @@ export async function startTracking(config: GeoSyncConfig): Promise<void> {
           heading:   position.coords.heading,
           timestamp: position.timestamp,
         };
+
+        console.log('[GeoSync] ✅ Converted to RawPosition:', {
+          lat: raw.lat.toFixed(6),
+          lng: raw.lng.toFixed(6),
+          accuracy: raw.accuracy,
+        });
+
         handlePositionUpdate(raw);
       },
       (err) => {
-        console.error('[GeoSync] Browser geolocation error:', err.code, err.message);
+        console.error('[GeoSync] ❌ Browser geolocation error:', {
+          code: err.code,
+          message: err.message,
+        });
       },
       {
         enableHighAccuracy: true,
-        timeout:            10_000,
-        maximumAge:         5_000,
+        timeout:            30_000, // Increased from 10s to 30s
+        maximumAge:         0, // Don't use cached position
       }
     );
 
@@ -206,26 +225,33 @@ export function updatePrivacy(privacy: PrivacyMode): void {
 function handlePositionUpdate(pos: RawPosition): void {
   if (!_config) return;
 
-  console.log('[GeoSync] Position update:', { lat: pos.lat, lng: pos.lng, accuracy: pos.accuracy });
+  console.log('[GeoSync] 📊 Position update received:', {
+    lat: pos.lat.toFixed(6),
+    lng: pos.lng.toFixed(6),
+    accuracy: pos.accuracy?.toFixed(1),
+    timestamp: new Date(pos.timestamp).toISOString(),
+  });
 
   // Always update local UI state regardless of sync threshold
   _config.onPositionUpdate(pos);
 
   if (_syncState.isPaused) {
-    console.log('[GeoSync] Tracking paused');
+    console.log('[GeoSync] ⏸️ Tracking paused');
     return;
   }
 
   // Anonymous privacy mode: never push to backend
   if (_config.privacy === 'anonymous') {
-    console.log('[GeoSync] Privacy mode: anonymous');
+    console.log('[GeoSync] 🔒 Privacy mode: anonymous (not broadcasting)');
     return;
   }
 
   const shouldSync = checkSyncThreshold(pos);
   if (shouldSync) {
-    console.log('[GeoSync] Sync threshold met, firing sync');
+    console.log('[GeoSync] 🔄 Sync threshold met, broadcasting to server');
     fireSync(pos);
+  } else {
+    console.log('[GeoSync] ⏭️ Sync threshold not met, skipping broadcast');
   }
 }
 
@@ -270,7 +296,7 @@ function fireSync(pos: RawPosition): void {
 
   _config.onSyncFired(pos);
 
-  broadcastLocation(_config.groupId, _config.userId, pos).catch(() => {
+  broadcastLocation(_config.roomId, _config.userId, pos).catch(() => {
     // broadcastLocation already enqueues on failure — nothing extra needed
   });
 }

@@ -8,9 +8,9 @@ import { SPEED_NO_VISUAL_KMH } from '../utils/contextDefaults';
 export function useGroupState() {
   const groupState  = useAppStore((s) => s.groupState);
   const myPosition  = useAppStore((s) => s.myPosition);
-  const activeGroup = useAppStore((s) => s.activeGroup);
+  const activeRoom = useAppStore((s) => s.activeRoom);
 
-  const context: GroupContext | null = activeGroup?.context ?? null;
+  const context: GroupContext | null = activeRoom?.context ?? null;
 
   const separatedMembers = useMemo<MemberLocation[]>(
     () => groupState?.separatedMembers ?? [],
@@ -54,8 +54,14 @@ export function useGroupState() {
   // Headcount for pilgrimage / tour_guide
   const headcountPresent = riderCount - separatedCount;
 
+  const members = useMemo<MemberLocation[]>(
+    () => groupState?.members ?? [],
+    [groupState?.members]
+  );
+
   return {
     groupState,
+    members,
     separatedMembers,
     riderCount,
     separatedCount,

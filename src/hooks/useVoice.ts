@@ -16,7 +16,7 @@ export function useVoice() {
   const [lastTranscript, setLastTranscript] = useState('');
 
   const groupState    = useAppStore((s) => s.groupState);
-  const activeGroup   = useAppStore((s) => s.activeGroup);
+  const activeRoom    = useAppStore((s) => s.activeRoom);
   const activeTrip    = useAppStore((s) => s.activeTrip);
   const myPosition    = useAppStore((s) => s.myPosition);
   const alertPref     = useAppStore((s) => s.alertPreference);
@@ -44,10 +44,10 @@ export function useVoice() {
       },
       getCurrentSpeedMs: () => myPosition?.speed ?? null,
       sendPreset: (msg) => {
-        if (!user || !activeGroup) return;
+        if (!user || !activeRoom) return;
         addMessage({
           id:           `local-${Date.now()}`,
-          group_id:     activeGroup.id,
+          room_id:      activeRoom.id,
           user_id:      user.id,
           message:      msg,
           message_type: 'preset',
@@ -61,7 +61,7 @@ export function useVoice() {
       },
     });
     registerCommands(commands);
-  }, [groupState, activeTrip, myPosition, user, activeGroup]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [groupState, activeTrip, myPosition, user, activeRoom]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const listen = useCallback(async () => {
     if (voiceState !== 'idle') return;

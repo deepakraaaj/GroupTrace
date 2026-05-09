@@ -3,14 +3,14 @@ import { supabase } from '../../services/supabaseClient';
 import { useAppStore } from '../../stores/appStore';
 
 export function TripPlanner() {
-  const activeGroup = useAppStore((s) => s.activeGroup);
+  const activeRoom = useAppStore((s) => s.activeRoom);
   const setActiveTrip = useAppStore((s) => s.setActiveTrip);
   const [name, setName] = useState('');
   const [destName, setDestName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
 
-  if (!activeGroup) return null;
+  if (!activeRoom) return null;
 
   const handleStart = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,7 +20,7 @@ export function TripPlanner() {
       const { data, error: err } = await supabase
         .from('trips')
         .insert({
-          group_id:         activeGroup.id,
+          room_id:         activeRoom.id,
           name:             name || 'Trip',
           destination_name: destName || null,
           status:           'active',

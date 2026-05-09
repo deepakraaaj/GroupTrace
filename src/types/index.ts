@@ -40,38 +40,33 @@ export interface DbUser {
   created_at: string;
 }
 
-export interface DbGroup {
+export interface DbRoom {
   id: string;
-  short_code: string;
+  code: string;
   name: string;
   context: GroupContext;
   organizer_id: string;
   is_active: boolean;
-  settings: GroupSettings;
   created_at: string;
 }
 
-export interface DbGroupMember {
-  id: string;
-  group_id: string;
+export interface DbRoomMember {
+  room_id: string;
   user_id: string;
   role: MemberRole;
-  device_id: string | null;
-  is_active: boolean;
   joined_at: string;
   last_seen_at: string;
 }
 
-export interface DbGroupLocation {
-  id: string;
-  group_id: string;
+export interface DbRoomLocation {
+  room_id: string;
   user_id: string;
   latitude: number;
   longitude: number;
   accuracy: number | null;
   speed: number | null;   // m/s
   heading: number | null; // 0–360
-  timestamp: string;
+  updated_at: string;
 }
 
 export interface DbTrip {
@@ -144,9 +139,9 @@ export interface AppUser {
   device_id: string | null;
 }
 
-export interface ActiveGroup {
+export interface ActiveRoom {
   id: string;
-  short_code: string;
+  code: string;
   name: string;
   context: GroupContext;
   organizer_id: string;
@@ -154,9 +149,9 @@ export interface ActiveGroup {
   myRole: MemberRole;
 }
 
-export interface GroupListItem {
+export interface RoomListItem {
   id: string;
-  short_code: string;
+  code: string;
   name: string;
   context: GroupContext;
   myRole: MemberRole;
@@ -330,8 +325,8 @@ export interface RideSetup {
 // ─────────────────────────────────────────────
 
 export interface RealtimeLocationPayload {
-  new: DbGroupLocation;
-  old: Partial<DbGroupLocation>;
+  new: DbRoomLocation;
+  old: Partial<DbRoomLocation>;
   eventType: 'INSERT' | 'UPDATE' | 'DELETE';
 }
 
@@ -346,7 +341,7 @@ export interface RealtimePinPayload {
 }
 
 export interface RealtimeMemberPayload {
-  new: DbGroupMember;
+  new: DbRoomMember;
   eventType: 'INSERT' | 'UPDATE';
 }
 

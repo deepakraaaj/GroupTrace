@@ -44,7 +44,7 @@ function createMarkerEl(member: MemberLocation, isSelf: boolean, isOrganizer: bo
 export function MarkerLayer({ map }: Props) {
   const groupState  = useAppStore((s) => s.groupState);
   const user        = useAppStore((s) => s.user);
-  const activeGroup = useAppStore((s) => s.activeGroup);
+  const activeRoom  = useAppStore((s) => s.activeRoom);
 
   // marker registry: userId → { marker, el }
   const markersRef = useRef<Map<string, { marker: maplibregl.Marker; el: HTMLElement }>>(new Map());
@@ -57,7 +57,7 @@ export function MarkerLayer({ map }: Props) {
 
     const members      = groupState.members;
     const myId         = user?.id;
-    const organizerId  = activeGroup?.organizer_id;
+    const organizerId  = activeRoom?.organizer_id;
     const currentIds   = new Set(members.map((m) => m.userId));
 
     console.log('[MarkerLayer] Rendering members:', {
@@ -101,7 +101,7 @@ export function MarkerLayer({ map }: Props) {
         markersRef.current.set(member.userId, { marker, el });
       }
     }
-  }, [groupState?.members, user?.id, activeGroup?.organizer_id, map]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [groupState?.members, user?.id, activeRoom?.organizer_id, map]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Clean up all markers on unmount
   useEffect(() => {

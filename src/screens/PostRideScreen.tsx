@@ -5,10 +5,10 @@ import { Icon } from '../components/ui/Icon';
 
 export function PostRideScreen() {
   const navigate    = useNavigate();
-  const activeGroup = useAppStore((s) => s.activeGroup);
+  const activeRoom = useAppStore((s) => s.activeRoom);
 
   const handleFinish = () => {
-    useAppStore.setState({ activeGroup: null });
+    useAppStore.setState({ activeRoom: null });
     navigate('/', { replace: true });
   };
 
