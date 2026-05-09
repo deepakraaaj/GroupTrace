@@ -187,15 +187,22 @@ export function DistanceLayer({ map, members, separationThresholdMeters }: Props
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      if (!map) return;
+
       const sourceId = sourceIdRef.current;
       const layerId = layerIdRef.current;
 
-      if (map.getLayer(layerId)) {
-        map.removeLayer(layerId);
+      try {
+        if (map.getLayer(layerId)) {
+          map.removeLayer(layerId);
+        }
+        if (map.getSource(sourceId)) {
+          map.removeSource(sourceId);
+        }
+      } catch (err) {
+        // Ignore cleanup errors
       }
-      if (map.getSource(sourceId)) {
-        map.removeSource(sourceId);
-      }
+
       for (const marker of labelsRef.current.values()) {
         marker.remove();
       }

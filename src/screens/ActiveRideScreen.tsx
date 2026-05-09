@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../stores/appStore';
 import { AwarenessPanel } from '../components/awareness/AwarenessPanel';
@@ -19,10 +19,32 @@ export function ActiveRideScreen() {
   const { riderCount, separatedCount, allTogether, members } = useGroupState();
   const [showSettings, setShowSettings] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
-  const [showDetailPanel, setShowDetailPanel] = useState(false);
+  const [detailPanelHeight, setDetailPanelHeight] = useState(0); // 0=hidden, 1=expanded
+  const detailPanelRef = useRef<HTMLDivElement>(null);
+  const detailStartYRef = useRef(0);
   const { stop, pause5Min } = useRideLocation();
 
   useGroupRealtime();
+
+  // Swipe gesture handler for detail panel
+  const handleDetailPanelTouchStart = (e: React.TouchEvent) => {
+    detailStartYRef.current = e.touches[0].clientY;
+  };
+
+  const handleDetailPanelTouchMove = (e: React.TouchEvent) => {
+    if (!detailPanelRef.current) return;
+    const currentY = e.touches[0].clientY;
+    const delta = currentY - detailStartYRef.current;
+
+    if (delta > 50) {
+      // Swiped down → hide panel
+      setDetailPanelHeight(0);
+    }
+  };
+
+  const handleDetailPanelTap = () => {
+    setDetailPanelHeight(detailPanelHeight === 0 ? 1 : 0);
+  };
 
   useEffect(() => {
     if (!activeRoom) {
@@ -45,64 +67,68 @@ export function ActiveRideScreen() {
     <div className="screen active-ride-screen">
       <MapView />
 
-      {/* COMPACT STATUS BAR (Top) */}
-      <div className="status-bar" style={{ background: allTogether ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.15)', borderColor: statusColor }}>
-        <button
-          className="status-bar-content"
-          onClick={() => setShowDetailPanel(!showDetailPanel)}
-          style={{ color: statusColor }}
-        >
+      {/* TOP STATUS BAR (Minimal) */}
+      <div className="status-bar-mobile" style={{ background: allTogether ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.15)', borderColor: statusColor }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
           <div className="status-indicator" style={{ background: statusColor }} />
           <span className="status-label">{activeRoom.name}</span>
-          <span className="status-count">{statusText}</span>
-          <Icon name={showDetailPanel ? 'chevron-up' : 'chevron-down'} size={16} />
-        </button>
-      </div>
-
-      {/* DETAIL PANEL (Expandable) */}
-      {showDetailPanel && (
-        <div className="detail-panel fade-in">
-          <AwarenessPanel />
+          <span className="status-count" style={{ color: statusColor }}>{statusText}</span>
         </div>
-      )}
-
-      {/* MINIMAL RIDER PILL (Bottom-Left) */}
-      <div className="rider-pill">
         <button
-          className="pill-button"
-          onClick={() => setShowDetailPanel(!showDetailPanel)}
-          title="Tap to see full list"
-        >
-          <span className="pill-count">{riderCount}</span>
-          <span className="pill-label">Riders</span>
-        </button>
-      </div>
-
-      {/* CONTROLS (Bottom-Right) */}
-      <div className="controls-bar">
-        <button
-          className="btn-icon"
+          className="btn-icon-sm"
           onClick={() => setShowDebug(!showDebug)}
-          title="Toggle location debug"
-          style={{ opacity: 0.6, fontSize: '12px' }}
+          title="Debug"
+          style={{ opacity: showDebug ? 1 : 0.5 }}
         >
           🐛
         </button>
+      </div>
 
+      {/* BOTTOM SHEET - RIDERS DETAIL (Swipe to expand) */}
+      <div
+        ref={detailPanelRef}
+        className={`detail-sheet ${detailPanelHeight > 0 ? 'expanded' : ''}`}
+        onTouchStart={handleDetailPanelTouchStart}
+        onTouchMove={handleDetailPanelTouchMove}
+        style={{
+          height: detailPanelHeight > 0 ? '60vh' : '80px',
+        }}
+      >
+        {/* Sheet Handle */}
         <button
-          className="btn-secondary btn-round"
-          onClick={() => setShowSettings(true)}
-          title="Settings & pause ride"
+          className="sheet-handle"
+          onClick={handleDetailPanelTap}
+          title={detailPanelHeight > 0 ? 'Swipe down to close' : 'Swipe up to expand'}
         >
-          <Icon name="settings" size={20} />
+          <div className="sheet-indicator" />
+          <span className="sheet-label">{riderCount} Riders</span>
+          <Icon name={detailPanelHeight > 0 ? 'chevron-down' : 'chevron-up'} size={16} />
+        </button>
+
+        {/* Sheet Content */}
+        {detailPanelHeight > 0 && (
+          <div className="sheet-content fade-in">
+            <AwarenessPanel />
+          </div>
+        )}
+      </div>
+
+      {/* VERTICAL BUTTON STACK (Right side, thumb-reachable) */}
+      <div className="controls-stack">
+        <button
+          className="btn-secondary btn-round-mobile"
+          onClick={() => setShowSettings(true)}
+          title="Settings"
+        >
+          <Icon name="settings" size={24} />
         </button>
 
         <button
-          className="btn-alert btn-round"
+          className="btn-alert btn-round-mobile"
           onClick={() => navigate('/post-ride')}
           title="End ride"
         >
-          <Icon name="log-out" size={20} />
+          <Icon name="log-out" size={24} />
         </button>
       </div>
 
@@ -126,10 +152,11 @@ export function ActiveRideScreen() {
         .active-ride-screen {
           background: #000;
           overflow: hidden;
+          position: relative;
         }
 
-        /* STATUS BAR (Top) */
-        .status-bar {
+        /* TOP STATUS BAR (Mobile-optimized) */
+        .status-bar-mobile {
           position: absolute;
           top: 0;
           left: 0;
@@ -137,32 +164,18 @@ export function ActiveRideScreen() {
           z-index: 100;
           border-bottom: 2px solid;
           backdrop-filter: blur(12px);
-          padding: env(safe-area-inset-top, 12px) 0 0 0;
-        }
-
-        .status-bar-content {
+          padding: max(12px, env(safe-area-inset-top, 12px)) 12px 12px 12px;
           display: flex;
           align-items: center;
+          justify-content: space-between;
           gap: 12px;
-          width: 100%;
-          padding: 12px 16px;
-          background: none;
-          border: none;
-          color: inherit;
-          cursor: pointer;
-          font-weight: 700;
-          font-size: 14px;
-          transition: all 0.2s;
-        }
-
-        .status-bar-content:hover {
-          background: rgba(255, 255, 255, 0.05);
         }
 
         .status-indicator {
           width: 8px;
           height: 8px;
           border-radius: 50%;
+          flex-shrink: 0;
           animation: pulse 2s infinite;
         }
 
@@ -172,8 +185,9 @@ export function ActiveRideScreen() {
         }
 
         .status-label {
-          flex: 1;
-          text-align: left;
+          font-size: 14px;
+          font-weight: 700;
+          white-space: nowrap;
         }
 
         .status-count {
@@ -182,79 +196,12 @@ export function ActiveRideScreen() {
           font-size: 12px;
           text-transform: uppercase;
           letter-spacing: 0.05em;
+          white-space: nowrap;
         }
 
-        /* DETAIL PANEL (Expandable) */
-        .detail-panel {
-          position: absolute;
-          top: 52px;
-          left: 0;
-          right: 0;
-          z-index: 99;
-          background: rgba(24, 24, 27, 0.95);
-          backdrop-filter: blur(12px);
-          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-          max-height: 45vh;
-          overflow-y: auto;
-          padding: 16px;
-        }
-
-        /* RIDER PILL (Bottom-Left) */
-        .rider-pill {
-          position: absolute;
-          bottom: 20px;
-          left: 16px;
-          z-index: 100;
-        }
-
-        .pill-button {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 6px;
-          width: 60px;
-          padding: 12px;
-          background: rgba(24, 24, 27, 0.85);
-          backdrop-filter: blur(12px);
-          border: 1px solid rgba(6, 214, 160, 0.3);
-          border-radius: 12px;
-          color: var(--color-accent);
-          font-weight: 700;
-          cursor: pointer;
-          transition: all 0.2s;
-        }
-
-        .pill-button:hover {
-          background: rgba(24, 24, 27, 0.95);
-          border-color: var(--color-accent);
-        }
-
-        .pill-count {
-          font-size: 20px;
-          font-weight: 800;
-        }
-
-        .pill-label {
-          font-size: 10px;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          font-weight: 700;
-        }
-
-        /* CONTROLS BAR (Bottom-Right) */
-        .controls-bar {
-          position: absolute;
-          bottom: 20px;
-          right: 16px;
-          z-index: 100;
-          display: flex;
-          gap: 12px;
-          align-items: center;
-        }
-
-        .btn-icon {
-          width: 48px;
-          height: 48px;
+        .btn-icon-sm {
+          width: 36px;
+          height: 36px;
           border-radius: 50%;
           background: rgba(24, 24, 27, 0.8);
           backdrop-filter: blur(12px);
@@ -263,16 +210,87 @@ export function ActiveRideScreen() {
           align-items: center;
           justify-content: center;
           cursor: pointer;
+          font-size: 16px;
           transition: all 0.2s;
-          color: inherit;
+          flex-shrink: 0;
         }
 
-        .btn-icon:hover {
+        .btn-icon-sm:active {
           background: rgba(24, 24, 27, 0.95);
-          border-color: rgba(255, 255, 255, 0.2);
         }
 
-        .btn-round {
+        /* BOTTOM SHEET (Swipeable) */
+        .detail-sheet {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          z-index: 99;
+          background: rgba(24, 24, 27, 0.98);
+          backdrop-filter: blur(12px);
+          border-top: 1px solid rgba(255, 255, 255, 0.1);
+          border-top-left-radius: 20px;
+          border-top-right-radius: 20px;
+          display: flex;
+          flex-direction: column;
+          transition: height 0.3s ease-out;
+          padding-bottom: max(0px, env(safe-area-inset-bottom, 0px));
+          touch-action: none;
+          user-select: none;
+        }
+
+        .detail-sheet.expanded {
+          box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Sheet Handle/Header */
+        .sheet-handle {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          padding: 12px 16px;
+          background: none;
+          border: none;
+          color: #fff;
+          cursor: pointer;
+          font-weight: 700;
+          font-size: 14px;
+          min-height: 56px;
+          touch-action: manipulation;
+        }
+
+        .sheet-indicator {
+          width: 40px;
+          height: 4px;
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 2px;
+        }
+
+        .sheet-label {
+          flex: 1;
+          text-align: left;
+        }
+
+        /* Sheet Content */
+        .sheet-content {
+          flex: 1;
+          overflow-y: auto;
+          padding: 0 16px 16px 16px;
+        }
+
+        /* VERTICAL BUTTON STACK (Right side, reachable) */
+        .controls-stack {
+          position: absolute;
+          bottom: max(100px, calc(env(safe-area-inset-bottom, 0px) + 20px));
+          right: 16px;
+          z-index: 100;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .btn-round-mobile {
           width: 56px;
           height: 56px;
           border-radius: 50%;
@@ -280,21 +298,24 @@ export function ActiveRideScreen() {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: rgba(24, 24, 27, 0.8);
+          background: rgba(24, 24, 27, 0.85);
           backdrop-filter: blur(12px);
           border: 1px solid rgba(255, 255, 255, 0.1);
           cursor: pointer;
           color: #fff;
           transition: all 0.2s;
+          touch-action: manipulation;
         }
 
-        .btn-round:hover {
+        .btn-round-mobile:active {
           background: rgba(24, 24, 27, 0.95);
           border-color: rgba(255, 255, 255, 0.2);
+          transform: scale(0.95);
         }
 
         .btn-secondary {
           color: var(--color-accent);
+          border-color: rgba(6, 214, 160, 0.3);
         }
 
         .btn-alert {
@@ -303,12 +324,11 @@ export function ActiveRideScreen() {
           color: var(--color-alert);
         }
 
-        .btn-alert:hover {
+        .btn-alert:active {
           background: rgba(239, 68, 68, 0.3);
-          border-color: rgba(239, 68, 68, 0.5);
         }
 
-        /* MODAL */
+        /* SETTINGS MODAL */
         .panel-overlay {
           position: fixed;
           inset: 0;
@@ -326,8 +346,9 @@ export function ActiveRideScreen() {
           border-top-right-radius: var(--radius-lg);
           border-top: 1px solid var(--color-border);
           padding: 24px;
-          padding-bottom: env(safe-area-inset-bottom, 24px);
-          max-height: 80vh;
+          padding-top: 16px;
+          padding-bottom: max(24px, env(safe-area-inset-bottom, 24px));
+          max-height: 85vh;
           overflow-y: auto;
         }
 
@@ -343,6 +364,25 @@ export function ActiveRideScreen() {
           to {
             opacity: 1;
             transform: translateY(0);
+          }
+        }
+
+        /* RESPONSIVE: Tablet & Desktop */
+        @media (min-width: 768px) {
+          .controls-stack {
+            flex-direction: row;
+            bottom: 20px;
+            gap: 8px;
+          }
+
+          .detail-sheet {
+            height: 45vh !important;
+            bottom: 0;
+            border-radius: 0;
+          }
+
+          .detail-sheet.expanded {
+            height: 60vh !important;
           }
         }
       `}</style>

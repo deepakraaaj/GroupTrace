@@ -73,9 +73,13 @@ export function ConnectionLine({ map, startLat, startLng, endLat, endLng }: Prop
     }
 
     return () => {
-      if (addedRef.current) {
-        if (map.getLayer(LINE_ID)) map.removeLayer(LINE_ID);
-        if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+      if (addedRef.current && map) {
+        try {
+          if (map.getLayer(LINE_ID)) map.removeLayer(LINE_ID);
+          if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+        } catch (err) {
+          // Ignore cleanup errors
+        }
         addedRef.current = false;
       }
     };
