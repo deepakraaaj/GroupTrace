@@ -13,6 +13,7 @@ import maplibregl from 'maplibre-gl';
 import { useAppStore } from '../../stores/appStore';
 import { haversineMeters } from '../../utils/math';
 import type { MemberLocation } from '../../types';
+import type GeoJSON from 'geojson';
 
 interface DistanceEdge {
   from: MemberLocation;
@@ -91,8 +92,8 @@ export function DistanceLayer({ map, members, separationThresholdMeters }: Props
     const edges = computeDistanceGraph(members, separationThresholdMeters);
 
     // Build GeoJSON LineStrings for all edges
-    const features = edges.map((edge) => ({
-      type: 'Feature',
+    const features: GeoJSON.Feature<GeoJSON.LineString>[] = edges.map((edge) => ({
+      type: 'Feature' as const,
       properties: {
         distance: Math.round(edge.distance),
         isSeparated: edge.isSeparated ? 1 : 0,
@@ -100,7 +101,7 @@ export function DistanceLayer({ map, members, separationThresholdMeters }: Props
         width: getLineWidth(edge.distance, edge.isSeparated),
       },
       geometry: {
-        type: 'LineString',
+        type: 'LineString' as const,
         coordinates: [
           [edge.from.lng, edge.from.lat],
           [edge.to.lng, edge.to.lat],
@@ -116,9 +117,9 @@ export function DistanceLayer({ map, members, separationThresholdMeters }: Props
       map.addSource(sourceId, {
         type: 'geojson',
         data: {
-          type: 'FeatureCollection',
+          type: 'FeatureCollection' as const,
           features,
-        },
+        } as GeoJSON.FeatureCollection,
       });
 
       // Create layer
@@ -139,9 +140,9 @@ export function DistanceLayer({ map, members, separationThresholdMeters }: Props
     } else {
       // Update source data
       (map.getSource(sourceId) as maplibregl.GeoJSONSource).setData({
-        type: 'FeatureCollection',
+        type: 'FeatureCollection' as const,
         features,
-      });
+      } as GeoJSON.FeatureCollection);
     }
 
     // Update distance labels (remove old, add new)
